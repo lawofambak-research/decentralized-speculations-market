@@ -45,7 +45,7 @@ contract DpmAssetPool {
     // Total amount of ETH speculated for price decrease
     uint256 public priceDecreaseEth;
 
-    // Chainlink price feed address for the specific asset
+    // Chainlink price feed for the specific asset
     AggregatorV3Interface internal chainlinkPriceFeed;
 
     // Mapping of address to speculator's info
@@ -57,6 +57,13 @@ contract DpmAssetPool {
         uint256 amountSpeculated; // ETH amount staked for speculation
         bool rewardsClaimed; // True or false depending on if rewards are claimed
     }
+
+    // Event
+    event SpeculationPeriodEnded(
+        uint256 blockTimestamp,
+        uint256 totalSpeculators,
+        uint256 winningResult
+    );
 
     constructor(
         address _deployer,
@@ -85,6 +92,12 @@ contract DpmAssetPool {
         finalAssetPrice = getLatestAssetPrice();
 
         finalAssetPrice >= startingAssetPrice ? result = 1 : result = 2;
+
+        emit SpeculationPeriodEnded(
+            block.timestamp,
+            getTotalSpeculators(),
+            result
+        );
     }
 
     /**
