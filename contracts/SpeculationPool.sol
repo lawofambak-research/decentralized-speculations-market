@@ -3,12 +3,9 @@ pragma solidity ^0.8.9;
 
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-contract DpmAssetPool {
-    // Admin (Dpm contract)
-    address public admin;
-
+contract SpeculationPool {
     // Deployer of pool
-    address public deployer;
+    address public immutable deployer;
 
     // Name of pool
     string public poolName;
@@ -71,7 +68,6 @@ contract DpmAssetPool {
         uint256 _speculationDuration,
         address _chainlinkPriceFeed
     ) {
-        admin = msg.sender;
         deployer = _deployer;
         poolName = _poolName;
         speculationStartTime = block.timestamp;
@@ -82,10 +78,8 @@ contract DpmAssetPool {
 
     /**
      * End speculation period and set final asset price (result)
-     * @notice Only callable by admin contract which is the platform that manages all pools
      */
     function endSpeculation() external {
-        require(msg.sender == admin, "Not admin");
         require(block.timestamp >= speculationEndTime, "Speculation ongoing");
 
         speculationEnded = true;
