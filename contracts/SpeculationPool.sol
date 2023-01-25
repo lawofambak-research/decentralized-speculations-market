@@ -78,14 +78,25 @@ contract SpeculationPool {
 
     /**
      * End speculation period and set final asset price (result)
+     * @notice User who calls this also gets the associated fees. This
+     * is supposed to somewhat serve as an incentive for users to call
+     * this function as early as possible. Need to research better
+     * incentive mechanism or implement this a different way.
      */
     function endSpeculation() external {
         require(block.timestamp >= speculationEndTime, "Speculation ongoing");
+        require(speculationEnded, "Speculation already ended");
 
         speculationEnded = true;
         finalAssetPrice = getLatestAssetPrice();
 
         finalAssetPrice >= startingAssetPrice ? result = 1 : result = 2;
+
+        uint256 fees = address(this).balance -
+            (priceIncreaseEth + priceDecreaseEth);
+
+        (bool sentFees, ) = payable(msg.sender).call{value: fees}("");
+        require(sentFees, "Failed to send fees");
 
         emit SpeculationPeriodEnded(
             block.timestamp,
@@ -130,15 +141,18 @@ contract SpeculationPool {
         require(_choice == 1 || _choice == 2, "Invalid choice");
         require(msg.value > 0, "ETH amount != 0");
 
+        // Calculate speculated amount with fee of 0.1%
+        uint256 _speculatedAmountWithFee = (msg.value * 999) / 1000;
+
         speculator[msg.sender].choice = _choice;
-        speculator[msg.sender].amountSpeculated = msg.value;
+        speculator[msg.sender].amountSpeculated = _speculatedAmountWithFee;
 
         if (_choice == 1) {
             priceIncreaseSpeculators++;
-            priceIncreaseEth += msg.value;
+            priceIncreaseEth += _speculatedAmountWithFee;
         } else {
             priceDecreaseSpeculators++;
-            priceDecreaseEth += msg.value;
+            priceDecreaseEth += _speculatedAmountWithFee;
         }
     }
 
