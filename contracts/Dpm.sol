@@ -22,6 +22,10 @@ contract Dpm {
 
     /**
      * Create new speculation pool for certain asset
+     * @param poolName_ String representation of the speculation pool name
+     * @param speculationDuration_ Time (in seconds) of how long the speculation period should last
+     * @param chainlinkPriceFeed_ Address of Chainlink price feed address of a certain asset
+     * @return _speculationPoolAddress Address of the newly created speculation pool
      */
     function createSpeculationPool(
         string memory poolName_,
