@@ -1,13 +1,11 @@
-# Sample Hardhat Project
+# Decentralized Predictions Market
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+## General Overview
 
-Try running some of the following tasks:
+This is a proof of concept for a decentralized predictions market. It will essentially serve as a marketplace that allows users to create their own speculation pools for certain crypto assets. These speculation pools will serve as a platform for other users to speculate on asset price movements within a specified time period.
 
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
-```
+## Smart Contracts
+
+### Dpm.sol
+
+This smart contract serves as the main platform for users to create their own speculation pools.
