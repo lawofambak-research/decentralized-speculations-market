@@ -29,7 +29,7 @@ describe("Speculation Pool", () => {
         speculationPoolContract = speculationPoolContractFactory.attach(speculationPoolAddress);
     });
 
-    it.only("State variables should be correctly initialized", async () => {
+    it("State variables should be correctly initialized", async () => {
         const poolDeployer = await speculationPoolContract.deployer();
         expect(poolDeployer).to.eq(bob.address);
 
@@ -67,5 +67,32 @@ describe("Speculation Pool", () => {
 
         const priceDecreaseEth = await speculationPoolContract.priceDecreaseEth();
         expect(priceDecreaseEth).to.eq(ethers.BigNumber.from(0));
+    });
+
+    it("View functions should work correctly", async () => {
+        const latestAssetPrice = await speculationPoolContract.getLatestAssetPrice();
+        expect(latestAssetPrice).to.be.within(ethers.BigNumber.from(1635e8), ethers.BigNumber.from(1636e8));
+
+        let totalSpeculators = await speculationPoolContract.getTotalSpeculators();
+        expect(totalSpeculators).to.eq(ethers.BigNumber.from(0));
+
+        let totalSpeculatedEth = await speculationPoolContract.getTotalSpeculatedEth();
+        expect(totalSpeculatedEth).to.eq(ethers.BigNumber.from(0));
+
+        let bobSpeculated = await speculationPoolContract.checkSpeculator(bob.address);
+        expect(bobSpeculated).to.eq(false);
+
+        // Make Bob speculate
+        await speculationPoolContract.connect(bob).speculate(1, { value: ethers.utils.parseEther("1")});
+
+        bobSpeculated = await speculationPoolContract.checkSpeculator(bob.address);
+        expect(bobSpeculated).to.eq(true);
+
+        totalSpeculators = await speculationPoolContract.getTotalSpeculators();
+        expect(totalSpeculators).to.eq(ethers.BigNumber.from(1));
+
+        totalSpeculatedEth = await speculationPoolContract.getTotalSpeculatedEth();
+        // Speculated amount (1 ETH) with 0.01% fee is 0.999e18
+        expect(totalSpeculatedEth).to.eq(ethers.BigNumber.from(999000000000000000n));
     });
 });

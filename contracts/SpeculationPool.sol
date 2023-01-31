@@ -123,6 +123,14 @@ contract SpeculationPool {
     }
 
     /**
+     * Returns the total amount of speculated ETH for this pool
+     * @return Total amount of speculated ETH in this pool
+     */
+    function getTotalSpeculatedEth() public view returns (uint256) {
+        return priceIncreaseEth + priceDecreaseEth;
+    }
+
+    /**
      * Checks if speculator already speculated in this pool
      * @param _speculator address of speculator
      * @return True or false depending of if speculator already speculated
