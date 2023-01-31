@@ -14,10 +14,11 @@ describe("Speculation Pool", () => {
     let deployer: SignerWithAddress;
     let bob: SignerWithAddress;
     let alice: SignerWithAddress;
+    let mark: SignerWithAddress;
     let speculationPoolContract: SpeculationPool;
 
     beforeEach(async () => {
-        [deployer, bob, alice] = await ethers.getSigners();
+        [deployer, bob, alice, mark] = await ethers.getSigners();
         const dpmContractFactory = await ethers.getContractFactory("Dpm");
         dpmContract = await dpmContractFactory.connect(deployer).deploy();
         await dpmContract.deployed();
@@ -94,5 +95,64 @@ describe("Speculation Pool", () => {
         totalSpeculatedEth = await speculationPoolContract.getTotalSpeculatedEth();
         // Speculated amount (1 ETH) with 0.01% fee is 0.999e18
         expect(totalSpeculatedEth).to.eq(ethers.BigNumber.from(999000000000000000n));
+    });
+
+    it("User should be able to speculate", async () => {
+        // Make Alice speculate an incorrect choice
+        await expect(speculationPoolContract.connect(alice).speculate(3)).to.be.revertedWith("Invalid choice");
+
+        // Make Alice speculate with correct choice but not ETH amount
+        await expect(speculationPoolContract.connect(alice).speculate(2)).to.be.rejectedWith("ETH amount != 0");
+
+        // Make Alice speculate correctly
+        await speculationPoolContract.connect(alice).speculate(2, { value: ethers.utils.parseEther("1")});
+
+        const aliceSpeculated = await speculationPoolContract.checkSpeculator(alice.address);
+        expect(aliceSpeculated).to.eq(true);
+
+        // Check if Alice cannot speculate again
+        await expect(speculationPoolContract.connect(alice).speculate(1, { value: ethers.utils.parseEther("2")})).to.be.revertedWith("Already speculated");
+
+        // Check if mapping of Alice's address is correctly populated
+        const aliceChoice = (await speculationPoolContract.speculator(alice.address)).choice;
+        expect(aliceChoice).to.eq(ethers.BigNumber.from(2));
+
+        const aliceAmountSpeculated = (await speculationPoolContract.speculator(alice.address)).amountSpeculated;
+        expect(aliceAmountSpeculated).to.eq(ethers.BigNumber.from(999000000000000000n));
+
+        const aliceRewardsClaimed = (await speculationPoolContract.speculator(alice.address)).rewardsClaimed;
+        expect(aliceRewardsClaimed).to.eq(false);
+
+        // Check if state variables are updated
+        let totalSpeculatedEth = await speculationPoolContract.getTotalSpeculatedEth();
+        // Speculated amount (1 ETH) with 0.01% fee is 0.999e18
+        expect(totalSpeculatedEth).to.eq(ethers.BigNumber.from(999000000000000000n));
+
+        let totalSpeculators = await speculationPoolContract.getTotalSpeculators();
+        expect(totalSpeculators).to.eq(ethers.BigNumber.from(1));
+
+        // Make another user (Mark) speculate
+        await speculationPoolContract.connect(mark).speculate(1, { value: ethers.utils.parseEther("2")});
+
+        const markSpeculated = await speculationPoolContract.checkSpeculator(mark.address);
+        expect(markSpeculated).to.eq(true);
+
+        // Check if mapping of Mark's address is correctly populated
+        const markChoice = (await speculationPoolContract.speculator(mark.address)).choice;
+        expect(markChoice).to.eq(ethers.BigNumber.from(1));
+
+        const markAmountSpeculated = (await speculationPoolContract.speculator(mark.address)).amountSpeculated;
+        // Speculated amount (2 ETH) with 0.01% fee is 1.998e18
+        expect(markAmountSpeculated).to.eq(ethers.BigNumber.from(1998000000000000000n));
+
+        const markRewardsClaimed = (await speculationPoolContract.speculator(mark.address)).rewardsClaimed;
+        expect(markRewardsClaimed).to.eq(false);
+
+        // Check if state variables are updated
+        totalSpeculatedEth = await speculationPoolContract.getTotalSpeculatedEth();
+        expect(totalSpeculatedEth).to.eq(ethers.BigNumber.from(999000000000000000n).add(1998000000000000000n));
+
+        totalSpeculators = await speculationPoolContract.getTotalSpeculators();
+        expect(totalSpeculators).to.eq(ethers.BigNumber.from(2));
     });
 });
