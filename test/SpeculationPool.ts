@@ -2,6 +2,7 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Dpm, SpeculationPool } from "../typechain-types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { time } from "@nomicfoundation/hardhat-network-helpers";
 
 // Chainlink ETH/USD price feed (Mainnet)
 const ETH_USD_PRICE_FEED = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
@@ -154,5 +155,19 @@ describe("Speculation Pool", () => {
 
         totalSpeculators = await speculationPoolContract.getTotalSpeculators();
         expect(totalSpeculators).to.eq(ethers.BigNumber.from(2));
+    });
+
+    it.only("Speculation period should end correctly", async () => {
+        // Check internal time
+        let latestTime = await time.latest();
+        const startTime = await speculationPoolContract.speculationStartTime();
+        expect(startTime).to.eq(ethers.BigNumber.from(latestTime));
+
+        // Advance time
+        await time.increase(SECONDS_IN_A_DAY);
+
+        latestTime = await time.latest();
+        const endTime = await speculationPoolContract.speculationEndTime();
+        expect(endTime).to.eq(ethers.BigNumber.from(latestTime));
     });
 });
