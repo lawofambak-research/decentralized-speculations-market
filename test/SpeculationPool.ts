@@ -20,6 +20,7 @@ describe("Speculation Pool", () => {
 
     beforeEach(async () => {
         [deployer, bob, alice, mark] = await ethers.getSigners();
+
         const dpmContractFactory = await ethers.getContractFactory("Dpm");
         dpmContract = await dpmContractFactory.connect(deployer).deploy();
         await dpmContract.deployed();
@@ -157,17 +158,45 @@ describe("Speculation Pool", () => {
         expect(totalSpeculators).to.eq(ethers.BigNumber.from(2));
     });
 
-    it.only("Speculation period should end correctly", async () => {
+    it("Speculation period should end correctly", async () => {
         // Check internal time
-        let latestTime = await time.latest();
+        const latestTime = await time.latest();
         const startTime = await speculationPoolContract.speculationStartTime();
         expect(startTime).to.eq(ethers.BigNumber.from(latestTime));
 
+        // Make Alice speculate with choice 2 (price decrease) and 1 ETH
+        await speculationPoolContract.connect(alice).speculate(2, { value: ethers.utils.parseEther("1")});
+
+        // Make Mark speculate with choice 1 (price increase) and 2 ETH
+        await speculationPoolContract.connect(mark).speculate(1, { value: ethers.utils.parseEther("2")});
+
         // Advance time
+        // * Chainlink price feed is not going to update as it does not update with mainnet forking *
+        // ! Need to learn how to use mocks !
         await time.increase(SECONDS_IN_A_DAY);
 
-        latestTime = await time.latest();
         const endTime = await speculationPoolContract.speculationEndTime();
-        expect(endTime).to.eq(ethers.BigNumber.from(latestTime));
+        expect(endTime).to.eq(ethers.BigNumber.from(startTime).add(ethers.BigNumber.from(SECONDS_IN_A_DAY)));
+
+        const bobEthBalanceBefore = await ethers.provider.getBalance(bob.address);
+        
+        // Make Bob end speculation and check for event being emitted
+        await expect(speculationPoolContract.connect(bob).endSpeculation())
+            .to.emit(speculationPoolContract, "SpeculationPeriodEnded");
+
+        // Compare Bob's ETH balance to check if he received fees
+        const bobEthBalanceAfter = await ethers.provider.getBalance(bob.address);
+        expect(bobEthBalanceAfter).to.be.above(bobEthBalanceBefore);
+        
+        // Check that Bob cannot end speculation again
+        await expect(speculationPoolContract.connect(bob).endSpeculation()).to.be.revertedWith("Speculation already ended");
+
+        // Check the result (result should be 1 since the Chainlink price feed did not change)
+        const result = await speculationPoolContract.result();
+        expect(result).to.eq(ethers.BigNumber.from(1));
+
+        // Check speculationEnded state variable
+        const speculationEnded = await speculationPoolContract.speculationEnded();
+        expect(speculationEnded).to.eq(true);
     });
 });

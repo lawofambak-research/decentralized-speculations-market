@@ -77,35 +77,6 @@ contract SpeculationPool {
     }
 
     /**
-     * End speculation period and set final asset price (result)
-     * @notice User who calls this also gets the associated fees. This
-     * is supposed to somewhat serve as an incentive for users to call
-     * this function as early as possible. Need to research better
-     * incentive mechanism or implement this a different way.
-     */
-    function endSpeculation() external {
-        require(block.timestamp >= speculationEndTime, "Speculation ongoing");
-        require(speculationEnded, "Speculation already ended");
-
-        speculationEnded = true;
-        finalAssetPrice = getLatestAssetPrice();
-
-        finalAssetPrice >= startingAssetPrice ? result = 1 : result = 2;
-
-        uint256 fees = address(this).balance -
-            (priceIncreaseEth + priceDecreaseEth);
-
-        (bool sentFees, ) = payable(msg.sender).call{value: fees}("");
-        require(sentFees, "Failed to send fees");
-
-        emit SpeculationPeriodEnded(
-            block.timestamp,
-            getTotalSpeculators(),
-            result
-        );
-    }
-
-    /**
      * Returns the latest price of asset
      * @return Scaled asset price
      */
@@ -137,6 +108,35 @@ contract SpeculationPool {
      */
     function checkSpeculator(address _speculator) public view returns (bool) {
         return speculator[_speculator].amountSpeculated != 0;
+    }
+
+    /**
+     * End speculation period and set final asset price (result)
+     * @notice User who calls this also gets the associated fees. This
+     * is supposed to somewhat serve as an incentive for users to call
+     * this function as early as possible. Need to research better
+     * incentive mechanism or implement this a different way.
+     */
+    function endSpeculation() external {
+        require(block.timestamp >= speculationEndTime, "Speculation ongoing");
+        require(!speculationEnded, "Speculation already ended");
+
+        speculationEnded = true;
+        finalAssetPrice = getLatestAssetPrice();
+
+        finalAssetPrice >= startingAssetPrice ? result = 1 : result = 2;
+
+        uint256 fees = address(this).balance -
+            (priceIncreaseEth + priceDecreaseEth);
+
+        (bool sentFees, ) = payable(msg.sender).call{value: fees}("");
+        require(sentFees, "Failed to send fees");
+
+        emit SpeculationPeriodEnded(
+            block.timestamp,
+            getTotalSpeculators(),
+            result
+        );
     }
 
     /**
