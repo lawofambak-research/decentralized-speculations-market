@@ -16,10 +16,11 @@ describe("Speculation Pool", () => {
     let bob: SignerWithAddress;
     let alice: SignerWithAddress;
     let mark: SignerWithAddress;
+    let john: SignerWithAddress;
     let speculationPoolContract: SpeculationPool;
 
     beforeEach(async () => {
-        [deployer, bob, alice, mark] = await ethers.getSigners();
+        [deployer, bob, alice, mark, john] = await ethers.getSigners();
 
         const dpmContractFactory = await ethers.getContractFactory("Dpm");
         dpmContract = await dpmContractFactory.connect(deployer).deploy();
@@ -198,5 +199,65 @@ describe("Speculation Pool", () => {
         // Check speculationEnded state variable
         const speculationEnded = await speculationPoolContract.speculationEnded();
         expect(speculationEnded).to.eq(true);
+    });
+
+    it("User should be able to claim rewards", async () => {
+        // Make Alice speculate with choice 2 (price decrease) and 1 ETH
+        await speculationPoolContract.connect(alice).speculate(2, { value: ethers.utils.parseEther("1")});
+
+        // Make John speculate with choice 1 (price increase) and 1 ETH
+        await speculationPoolContract.connect(john).speculate(1, { value: ethers.utils.parseEther("1")});
+
+        // Make Mark speculate with choice 1 (price increase) and 2 ETH
+        await speculationPoolContract.connect(mark).speculate(1, { value: ethers.utils.parseEther("2")});
+
+        // Users should not be able to claim rewards if speculation period did not end
+        await expect(speculationPoolContract.connect(mark).claimRewards()).to.be.revertedWith("Speculation ongoing");
+        await expect(speculationPoolContract.connect(john).claimRewards()).to.be.revertedWith("Speculation ongoing");
+
+        // Advance time
+        await time.increase(SECONDS_IN_A_DAY);
+
+        // Make Bob end speculation
+        // Winning result should be 1 since Chainlink price feed does not update
+        await speculationPoolContract.connect(bob).endSpeculation();
+
+        // Alice should not be able to claim rewards
+        await expect(speculationPoolContract.connect(alice).claimRewards()).to.be.revertedWith("Incorrect speculation");
+
+        const markEthBalanceBefore = await ethers.provider.getBalance(mark.address);
+        const johnEthBalanceBefore = await ethers.provider.getBalance(john.address);
+
+        // Mark and John should be able to claim rewards
+        await speculationPoolContract.connect(mark).claimRewards();
+        await speculationPoolContract.connect(john).claimRewards();
+
+        await expect(speculationPoolContract.connect(mark).claimRewards()).to.be.revertedWith("Rewards already claimed");
+        await expect(speculationPoolContract.connect(john).claimRewards()).to.be.revertedWith("Rewards already claimed");
+
+        // Compare Mark's and John's ETH balance to check if they claimed rewards
+        const markEthBalanceAfter = await ethers.provider.getBalance(mark.address);
+        const johnEthBalanceAfter = await ethers.provider.getBalance(john.address);
+        expect(markEthBalanceAfter).to.be.above(markEthBalanceBefore);
+        expect(johnEthBalanceAfter).to.be.above(johnEthBalanceBefore);
+
+        // Total amount of ETH rewards Mark should receive excluding gas fees (not scaled)
+        let calculatedMarkRewards = 1.998 + ((1.998 * 0.999) / 2.997);
+        calculatedMarkRewards = calculatedMarkRewards * 10**18;
+        // Includes gas fees
+        const markRewards = markEthBalanceAfter.sub(markEthBalanceBefore);
+        // Testing with a delta of 0.001 ETH
+        expect(markRewards).to.be.closeTo(ethers.BigNumber.from(BigInt(calculatedMarkRewards)), ethers.BigNumber.from(1000000000000000n));
+
+        // Total amount of ETH rewards John should receive excluding gas fees (not scaled)
+        let calculatedJohnRewards = 0.999 + ((0.999 * 0.999) / 2.997);
+        calculatedJohnRewards = calculatedJohnRewards * 10**18;
+        // Includes gas fees
+        const johnRewards = johnEthBalanceAfter.sub(johnEthBalanceBefore);
+        // Testing with a delta of 0.001 ETH
+        expect(johnRewards).to.be.closeTo(ethers.BigNumber.from(BigInt(calculatedJohnRewards)), ethers.BigNumber.from(1000000000000000n));
+
+        // Speculation pool contract ETH balance should be 0 after all rewards all claimed
+        expect(await ethers.provider.getBalance(speculationPoolContract.address)).to.eq(ethers.BigNumber.from(0));
     });
 });
