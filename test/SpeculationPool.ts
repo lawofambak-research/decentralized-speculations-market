@@ -71,6 +71,9 @@ describe("Speculation Pool", () => {
 
         const priceDecreaseEth = await speculationPoolContract.priceDecreaseEth();
         expect(priceDecreaseEth).to.eq(ethers.BigNumber.from(0));
+
+        const chainlinkPriceFeedAddress = await speculationPoolContract.chainlinkPriceFeed();
+        expect(chainlinkPriceFeedAddress).to.eq(ETH_USD_PRICE_FEED);
     });
 
     it("View functions should work correctly", async () => {

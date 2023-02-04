@@ -43,7 +43,7 @@ contract SpeculationPool {
     uint256 public priceDecreaseEth;
 
     // Chainlink price feed for the specific asset
-    AggregatorV3Interface internal chainlinkPriceFeed;
+    AggregatorV3Interface public chainlinkPriceFeed;
 
     // Mapping of address to speculator's info
     mapping(address => Speculator) public speculator;
