@@ -149,7 +149,7 @@ contract SpeculationPool {
         require(_choice == 1 || _choice == 2, "Invalid choice");
         require(msg.value > 0, "ETH amount != 0");
 
-        // Calculate speculated amount with fee of 0.1%
+        // Calculate speculated amount with fee of 0.01%
         uint256 _speculatedAmountWithFee = (msg.value * 999) / 1000;
 
         speculator[msg.sender].choice = _choice;
